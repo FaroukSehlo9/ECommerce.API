@@ -1,48 +1,66 @@
-﻿using ECommerce.Application.Communications;
+﻿using ECommerce.API.Controllers;
+using ECommerce.API.Extentions;
+using ECommerce.Application.Communications;
 using ECommerce.Application.DTOS.UserDTO;
 using ECommerce.Application.IService;
 using Microsoft.AspNetCore.Mvc;
 
-[Route("api/[controller]")]
-[ApiController]
-public class UserController : ControllerBase
+namespace ECommerce.Api.Controllers
 {
-    private readonly IUserService _userService;
-    public UserController(IUserService userService)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class UserController : BaseApiController
     {
-        _userService = userService;
-    }
+        private readonly IUserService _userService;
 
-    [HttpGet("GetAll")]
-    public async Task<GeneralResponse<List<UserDto>>> GetAll()
-    {
-        return await _userService.GetAll();
-    }
+        public UserController(IUserService userService)
+        {
+            this._userService = userService;
+        }
+        [HttpGet("GetAll")]
+        public async Task<GeneralResponse<List<UserDto>>> GetAll()
+        {
+            
+            return await _userService.GetAll();
+        }
+        [HttpGet("GetAdmins")]
+        public async Task<GeneralResponse<List<AdminDto>>> GetAdmins()
+        {
 
-    [HttpGet("GetById")]
-    public async Task<GeneralResponse<UserDto>> GetById(Guid Id)
-    {
-        return await _userService.GetByIdAsync(Id);
-    }
+            return await _userService.GetAdmin();
+        }
+        [HttpGet("GetById")]
+        public async Task<GeneralResponse<UserDto>> GetById(Guid Id)
+        {
+           
+            return await _userService.GetByIdAsync(Id);
+        }
+        [HttpPost("Add")]
+        public async Task<GeneralResponse<Guid>> Add(UserInput Input)
+        {
+            Guid userId = Guid.Parse(HttpContext.GetUserId());
 
-    [HttpPost("Add")]
-    public async Task<GeneralResponse<Guid>> Add(UserInput input)
-    {
-        // تجربة بدون Login
-        Guid dummyUserId = Guid.NewGuid();
-        return await _userService.Add(input, dummyUserId);
-    }
+            return await _userService.Add(Input, userId);
+        }
 
-    [HttpPost("Update")]
-    public async Task<GeneralResponse<Guid>> Update(UserUpdateInput input)
-    {
-        Guid dummyUserId = Guid.NewGuid();
-        return await _userService.Update(input, dummyUserId);
-    }
+        [HttpPost("Update")]
+        public async Task<GeneralResponse<Guid>> Update(UserUpdateInput Input)
+        {
+            Guid userId = Guid.Parse(HttpContext.GetUserId());
 
-    [HttpPost("SoftDelete")]
-    public async Task<GeneralResponse<Guid>> SoftDelete(Guid Id)
-    {
-        return await _userService.SoftDelete(Id);
+            return await _userService.Update(Input, userId);
+        }
+        [HttpPost("SoftDelete")]
+        public async Task<GeneralResponse<Guid>> SoftDelete(Guid Id)
+        {
+
+            return await _userService.SoftDelete(Id);
+        }
+        [HttpPost("SoftRangeDelete")]
+        public async Task<GeneralResponse<List<Guid>>> SoftRangeDelete(List<Guid> Id)
+        {
+            
+            return await _userService.SoftRangeDelete(Id);
+        }
     }
 }
