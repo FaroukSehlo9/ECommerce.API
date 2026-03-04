@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using ECommerce.Application.DTOS.AuthDTO;
 using ECommerce.Application.DTOS.UserDTO;
 using ECommerce.Domain.Entities;
 using System;
@@ -15,7 +16,7 @@ namespace ECommerce.Application.Mapping
         public MappingUserProfile()
         {
 
-            //CreateMap<RegistrationRequest, User>();
+            CreateMap<RegistrationRequest, User>();
             CreateMap<UserInput, User>();
             CreateMap<UserUpdateInput, User>();
 
