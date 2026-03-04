@@ -13,6 +13,8 @@ using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using ECommerce.InfraStructure.Presistance;
+using ECommerce.Application.IService;
+using ECommerce.Application.Service;
 
 namespace ECommerce.Api
 {
@@ -99,7 +101,7 @@ namespace ECommerce.Api
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             //services.AddScoped<IAuthService, AuthService>();
-            //services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IUserService, UserService>();
             //services.AddScoped<IProductService, ProductService>();
             //services.AddScoped<ICategoryService, CategoryService>();
 

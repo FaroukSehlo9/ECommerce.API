@@ -18,13 +18,12 @@ namespace ECommerce.InfraStructure.Presistance
         {
         }
         public virtual DbSet<User> Users { get; set; }
+        public virtual DbSet<Product> Product { get; set; }
        
 
-        // public virtual DbSet<Test> Test { get; set; }
 
 
 
-        // public virtual DbSet<Appointment> Appointments { get; set; }
 
 
 

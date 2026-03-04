@@ -11,11 +11,23 @@ namespace ECommerce.Domain.Entities
     public class User : Auditable
     {
         [Required]
-        public string UserName { get; set; }
+        public string UserName { get; set; } 
+
         [Required]
-        public string Password { get; set; }
-        public int RoleId { get; set; }
-        
+        public string PasswordHash { get; set; } 
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } 
+
+        [Required]
+        [MaxLength(20)]
+        public string Phone { get; set; } 
+
+        [Required]
+        public int Role { get; set; }  
+
+       
 
 
 

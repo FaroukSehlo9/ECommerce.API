@@ -8,12 +8,11 @@ namespace ECommerce.Application.Helpers
 {
     public class CommenEnum
     {
-        //public enum RoleType
-        //{
-        //    Admin = 1,
-        //    Doctor = 2,
-        //    Patient = 3,
-        //    // Stuff = 4
-        //}
+        public enum RoleType
+        {
+            Admin = 1,
+            Manager = 2,
+            Customer = 3
+        }
     }
 }

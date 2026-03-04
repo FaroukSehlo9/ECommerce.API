@@ -16,6 +16,7 @@ namespace ECommerce.Domain.IRepositories
     {
 
         IRepository<User> User { get; }
+        IRepository<Product> Product { get; }
 
 
 
