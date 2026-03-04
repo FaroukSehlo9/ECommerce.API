@@ -35,7 +35,7 @@ namespace ECommerce.Application.Service
             {
                 var result = 0;
                 var User = _Imapper.Map<UserInput, User>(Input);
-                User.CreatedBy = UserId;
+                //User.CreatedBy = UserId;
                 User.CreationDate = DateTime.Now;
                 User.PasswordHash = WebUiUtility.Encrypt(Input.PasswordHash);
 
@@ -90,6 +90,11 @@ namespace ECommerce.Application.Service
             else if (CheckEmail(User.Email, User.Id))
             {
                 message = "EmailAlreadyExists";
+                return false;
+            }
+            else if (Checkphone(User.Phone, User.Id) )
+            {
+                message = "PhoneNumberIsNotValid";
                 return false;
             }
             message = "";
