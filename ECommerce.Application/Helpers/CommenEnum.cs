@@ -10,9 +10,9 @@ namespace ECommerce.Application.Helpers
     {
         public enum RoleType
         {
-            Admin = 1,
-            Manager = 2,
-            Customer = 3
+            Admin =1,
+            Manager =2,
+            Customer =3
         }
     }
 }

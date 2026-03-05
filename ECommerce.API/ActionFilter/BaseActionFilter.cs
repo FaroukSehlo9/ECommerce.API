@@ -2,54 +2,66 @@
 using ECommerce.Application.IService;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using static ECommerce.Application.Helpers.CommenEnum;
 
-namespace ECommerce.API.ActionFilter
+namespace MagicBroom.APIServices.ActionFilter
 {
     public class BaseActionFilter : IAsyncActionFilter
     {
+        private readonly IUserService _userService;
 
-        private readonly IUserService _UserService;
-        public BaseActionFilter(IUserService UserService)
+        public BaseActionFilter(IUserService userService)
         {
-            _UserService = UserService;
+            _userService = userService;
         }
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
+            // 1️⃣ Get UserId from token
+            string userIdString = context.HttpContext.GetUserId();
 
-            string UserName = context.HttpContext.GetUserId();//token
-
-
-            if (string.IsNullOrEmpty(UserName))
+            if (string.IsNullOrEmpty(userIdString))
             {
-                context.Result = new RedirectToRouteResult(
-                   new RouteValueDictionary(new { controller = "Message", action = "LoginFirst" }));
-            }
-            else
-            {
-                Guid userId = Guid.Parse(context.HttpContext.GetUserId());
-                var User = _UserService.GetUserById(userId);
-                if (User == null)
+                context.Result = new UnauthorizedObjectResult(new
                 {
-                    context.Result = new RedirectToRouteResult(
-                new RouteValueDictionary(new { controller = "Message", action = "UserNotFound" }));
-                }
-
-                else if (User.Role == (long)RoleType.Customer)
-                {
-                    context.Result = new RedirectToRouteResult(
-                new RouteValueDictionary(new { controller = "Message", action = "NoPermission" }));
-                }
-                else
-                {
-                    await next();
-                }
+                    message = "Login required"
+                });
+                return;
             }
 
+            // 2️⃣ Validate Guid safely
+            if (!Guid.TryParse(userIdString, out Guid userId))
+            {
+                context.Result = new UnauthorizedObjectResult(new
+                {
+                    message = "Invalid token"
+                });
+                return;
+            }
+
+            // 3️⃣ Get user from database
+            var user = _userService.GetUserById(userId);
+
+            if (user == null)
+            {
+                context.Result = new NotFoundObjectResult(new
+                {
+                    message = "User not found"
+                });
+                return;
+            }
+
+            // 4️⃣ Role check (3 = Customer مثلاً)
+            if (user.Role == 3)
+            {
+                context.Result = new NotFoundObjectResult(new
+                {
+                    message = "NoPermission"
+                });
+                return;
+            }
+
+            // 5️⃣ Continue
+            await next();
         }
-
-
-
     }
 }

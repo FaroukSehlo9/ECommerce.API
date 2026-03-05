@@ -63,7 +63,7 @@ namespace ECommerce.Application.Service
                 Token = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken),
                 Email = User.Email,
                 UserName = User.UserName,
-                RoleId = User.Role
+                Role = User.Role
             };
 
             #endregion

@@ -1,20 +1,23 @@
-﻿using ECommerce.API.Middleware;
+﻿using ECommerce.API.ActionFilter;
+using ECommerce.API.Middleware;
+using ECommerce.Application.IService;
+using ECommerce.Application.Service;
 using ECommerce.Domain.IRepositories;
 using ECommerce.Domain.IRepositories.Base;
+using ECommerce.InfraStructure.Presistance;
 using ECommerce.InfraStructure.Reposatories;
 using ECommerce.InfraStructure.Reposatories.Base;
+using MagicBroom.APIServices.ActionFilter;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System;
 using System.Globalization;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
-using ECommerce.InfraStructure.Presistance;
-using ECommerce.Application.IService;
-using ECommerce.Application.Service;
 
 namespace ECommerce.Api
 {
@@ -117,6 +120,8 @@ namespace ECommerce.Api
                 options.SupportedCultures = supportedCultures;
                 options.SupportedUICultures = supportedCultures;
             });
+            services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+            services.AddTransient<BaseActionFilter>();
         }
 
         // تكوين الـ HTTP pipeline
