@@ -106,6 +106,7 @@ namespace ECommerce.Api
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProductService, ProductService>();
+            services.AddScoped<ICartService, CartService>();
             //services.AddScoped<ICategoryService, CategoryService>();
 
             // ===== AutoMapper =====

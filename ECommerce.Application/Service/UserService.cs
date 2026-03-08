@@ -33,7 +33,6 @@ namespace ECommerce.Application.Service
         {
             try
             {
-                var result = 0;
                 var User = _Imapper.Map<UserInput, User>(Input);
                 User.CreatedBy = UserId;
                 User.CreationDate = DateTime.Now;
@@ -48,8 +47,10 @@ namespace ECommerce.Application.Service
 
                 #region Add
                 await _unit.User.AddAsync(User);
+                var result = _unit.Save();
+
                 #endregion
-            
+
                 return result >= 1 ? new GeneralResponse<Guid>(User.Id, _localization["AddedSuccesfully"].Value)
             : new GeneralResponse<Guid>(_localization["ErrorInSave"].Value, System.Net.HttpStatusCode.BadRequest);
             }
@@ -180,6 +181,8 @@ namespace ECommerce.Application.Service
                 var User = _Imapper.Map<UserUpdateInput, User>(Input, OldUser);
                 User.UpdatedBy = UserId;
                 User.UpdatedDate = DateTime.Now;
+                User.PasswordHash = WebUiUtility.Encrypt(Input.PasswordHash);
+
 
                 #region CheckValid
                 if (!CheckUser(User, out String message))

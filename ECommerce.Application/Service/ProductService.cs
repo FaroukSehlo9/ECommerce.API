@@ -4,6 +4,7 @@ using ECommerce.Application.Communications;
 using ECommerce.Application.DTOS.ProductDTO;
 using ECommerce.Application.IService;
 using ECommerce.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using ECommerce.Domain.IRepositories;
 using Microsoft.Extensions.Localization;
 using System;
@@ -29,7 +30,7 @@ namespace ECommerce.Application.Service
         public async Task<GeneralResponse<List<ProductDto>>> GetAll()
         {
           
-            var result = _unit.Product.All().ToList().Select(x => new ProductDto
+            var result = _unit.Product.All().Include(x => x.User).ToList().Select(x => new ProductDto
             {
                 Id = x.Id,
                 Name = x.Name,
@@ -37,7 +38,7 @@ namespace ECommerce.Application.Service
                 Price = x.Price,
                 StockQuantity = x.StockQuantity,
                 UserId = x.UserId,
-                UserName=_unit.User.All().Where(u=>u.Id==x.UserId).Select(u=>u.UserName).FirstOrDefault()
+                UserName=x.User.UserName
 
             }).ToList();
             return new GeneralResponse<List<ProductDto>>(result, _localization["Succes"].Value, result.Count());
@@ -45,7 +46,7 @@ namespace ECommerce.Application.Service
 
         public async Task<GeneralResponse<ProductDto>> GetByIdAsync(Guid Id)
         {
-            var result = _unit.Product.All().Where(d => d.Id == Id).ToList().Select(x => new ProductDto
+            var result = _unit.Product.All().Include(x=>x.User).Where(d => d.Id == Id).ToList().Select(x => new ProductDto
             {
                 Id = x.Id,
                 Name = x.Name,
@@ -53,7 +54,7 @@ namespace ECommerce.Application.Service
                 Price = x.Price,
                 StockQuantity = x.StockQuantity,
                 UserId = x.UserId,
-                UserName = _unit.User.All().Where(u => u.Id == x.UserId).Select(u => u.UserName).FirstOrDefault()
+                UserName = x.User.UserName
 
             }).FirstOrDefault();
             return new GeneralResponse<ProductDto>(result, _localization["Succes"].Value);

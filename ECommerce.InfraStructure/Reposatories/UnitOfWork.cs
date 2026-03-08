@@ -20,6 +20,8 @@ namespace ECommerce.InfraStructure.Reposatories
         private DBContext context;
         public IRepository<User> User { get; private set; }
         public IRepository<Product> Product { get; private set; }
+        public IRepository<Cart> Cart { get; private set; }
+        public IRepository<CartItem> CartItem { get; private set; }
      
 
 
@@ -30,6 +32,8 @@ namespace ECommerce.InfraStructure.Reposatories
             this.context = context;
             User = new Repository<User>(this.context);
             Product = new Repository<Product>(this.context);
+            Cart = new Repository<Cart>(this.context);
+            CartItem = new Repository<CartItem>(this.context);
            
         }
 

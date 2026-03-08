@@ -14,7 +14,9 @@ namespace ECommerce.Application.Mapping
         public MappingProduct()
         {
 
-            CreateMap<ProductDto, Product>();
+            CreateMap<Product, ProductDto>()
+                .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.UserName));
+
             CreateMap<ProductInput, Product>();
             CreateMap<ProductUpdateInput, Product>();
 
