@@ -22,6 +22,8 @@ namespace ECommerce.InfraStructure.Reposatories
         public IRepository<Product> Product { get; private set; }
         public IRepository<Cart> Cart { get; private set; }
         public IRepository<CartItem> CartItem { get; private set; }
+        public IRepository<Category> Category { get; private set; }
+        public IRepository<ProductCategory> ProductCategory { get; private set; }
      
 
 
@@ -34,6 +36,8 @@ namespace ECommerce.InfraStructure.Reposatories
             Product = new Repository<Product>(this.context);
             Cart = new Repository<Cart>(this.context);
             CartItem = new Repository<CartItem>(this.context);
+            Category = new Repository<Category>(this.context);
+            ProductCategory = new Repository<ProductCategory>(this.context);
            
         }
 

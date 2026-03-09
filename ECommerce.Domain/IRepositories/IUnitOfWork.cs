@@ -19,6 +19,8 @@ namespace ECommerce.Domain.IRepositories
         IRepository<Product> Product { get; }
         IRepository<Cart> Cart { get; }
         IRepository<CartItem> CartItem { get; }
+        IRepository<Category> Category { get; }
+        IRepository<ProductCategory> ProductCategory { get; }
 
 
 
