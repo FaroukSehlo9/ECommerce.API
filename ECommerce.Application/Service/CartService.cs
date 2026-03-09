@@ -67,7 +67,7 @@ namespace ECommerce.Application.Service
         public async Task<GeneralResponse<CartDto>> GetByIdAsync(Guid Id)
         {
             var cart = await _unit.Cart.GetByIdAsync(Id);
-            if (cart == null)
+            if (cart == null||cart.IsDeleted)
                 return new GeneralResponse<CartDto>(_localization["NotFound"].Value, System.Net.HttpStatusCode.NotFound);
 
             var result = _unit.Cart.All().Include(x => x.User).Include(x => x.Items).ThenInclude(i => i.Product).Where(d => d.Id == Id).ToList().Select(x => new CartDto
@@ -99,56 +99,69 @@ namespace ECommerce.Application.Service
         {
             try
             {
-                // 1. Check if user already has a cart
-                var existingCart = _unit.Cart.All()
+                // جلب الكارت الحالي مع العناصر
+                var cart = _unit.Cart
+                    .All()
+                    .Include(c => c.Items)
                     .FirstOrDefault(c => c.UserId == UserId);
 
-                if (existingCart != null)
+                if (cart == null || cart.IsDeleted)   
                 {
-                    // 2. Update existing cart
-                    foreach (var item in Input.Items)
+                    cart = new Cart
                     {
-                        var existingItem = existingCart.Items
-                            .FirstOrDefault(i => i.ProductId == item.ProductId);
-
-                        if (existingItem != null)
-                        {
-                            existingItem.Quantity += item.Quantity; // Update quantity
-                        }
-                        else
-                        {
-                            existingCart.Items.Add(new CartItem
-                            {
-                                Id = Guid.NewGuid(),
-                                ProductId = item.ProductId,
-                                Quantity = item.Quantity
-                            });
-                        }
-                    }
-
-                    existingCart.UpdatedDate = DateTime.Now;
-
-                    await _unit.Cart.UpdateAsync(existingCart);
-                    var result = _unit.Save();
-
-                    return result > 0
-                        ? new GeneralResponse<Guid>(existingCart.Id, _localization["Succesfully"].Value)
-                        : new GeneralResponse<Guid>(_localization["ErrorInSave"].Value, System.Net.HttpStatusCode.BadRequest);
-                }
-                else
-                {
-                    // 3. Create new cart
-                    var cart = _Imapper.Map<CartInput, Cart>(Input);
-                    cart.UserId = UserId;
-                    cart.CreationDate = DateTime.Now;
+                        Id = Guid.NewGuid(),
+                        UserId = UserId,
+                        Items = new List<CartItem>()
+                    };
 
                     await _unit.Cart.AddAsync(cart);
-                    var result = _unit.Save();
-
-                    return result > 0
-                        ? new GeneralResponse<Guid>(cart.Id, _localization["Succesfully"].Value)
-                        : new GeneralResponse<Guid>(_localization["ErrorInSave"].Value, System.Net.HttpStatusCode.BadRequest);
                 }
+
+                foreach (var item in Input.Items)
+                {
+                    var product = await _unit.Product.GetByIdAsync(item.ProductId);
+
+                    if (product == null)
+                    {
+                        return new GeneralResponse<Guid>(_localization["Product  not found"].Value, System.Net.HttpStatusCode.BadRequest);
+                    }
+
+                    // تحقق من الكمية المتاحة
+                    if (item.Quantity > product.StockQuantity)
+                    {
+                        return new GeneralResponse<Guid>(_localization[$"Requested quantity for product {product.Name} exceeds available stock"].Value, System.Net.HttpStatusCode.BadRequest);
+                    }
+
+                    var existingItem = cart.Items.FirstOrDefault(x => x.ProductId == item.ProductId);
+
+                    if (existingItem != null)
+                    {
+                        // تحقق من الكمية بعد الجمع
+                        if (existingItem.Quantity + item.Quantity > product.StockQuantity)
+                        {
+                            return new GeneralResponse<Guid>(_localization[$"Total quantity for product {product.Name} exceeds available stock"], System.Net.HttpStatusCode.BadRequest);
+                        }
+
+                        existingItem.Quantity += item.Quantity;
+                        await _unit.CartItem.UpdateAsync(existingItem);
+                    }
+                    else
+                    {
+                        var cartItem = new CartItem
+                        {
+                            Id = Guid.NewGuid(),
+                            CartId = cart.Id,
+                            ProductId = item.ProductId,
+                            Quantity = item.Quantity
+                        };
+                        await _unit.CartItem.AddAsync(cartItem);
+                    }
+                }
+
+
+                var result = _unit.Save();
+                return result > 0 ? new GeneralResponse<Guid>(cart.Id, _localization["succesfully"].Value)
+                     : new GeneralResponse<Guid>(_localization["errorinsave"].Value, System.Net.HttpStatusCode.BadRequest);
             }
             catch (Exception ex)
             {
@@ -158,100 +171,73 @@ namespace ECommerce.Application.Service
             }
         }
 
-        public async Task<GeneralResponse<Guid>> Update(CartUpdateInput Input, Guid UserId)
+        public async Task<GeneralResponse<Guid>> Update(CartItemUpdateInput input, Guid userId)
         {
             try
             {
-                // 1. جلب الكارت مع العناصر والمنتجات
-                var cart = _unit.Cart.All()
-                    .Include(c => c.User)
+                var cart = _unit.Cart
+                    .All()
                     .Include(c => c.Items)
-                        .ThenInclude(i => i.Product)
-                    .FirstOrDefault(c => c.UserId == UserId);
+                    .FirstOrDefault(c => c.UserId == userId);
 
-                if (cart == null)
+                if (cart == null || cart.IsDeleted)
                 {
-                    return new GeneralResponse<Guid>(_localization["CartNotFound"].Value, System.Net.HttpStatusCode.NotFound);
+                    return new GeneralResponse<Guid>(
+                        _localization["Cart not found"].Value,
+                        System.Net.HttpStatusCode.BadRequest);
                 }
 
-                bool saved = false;
-                while (!saved)
+                var cartItem = cart.Items.FirstOrDefault(x => x.ProductId == input.ProductId);
+
+                if (cartItem == null||cartItem.IsDeleted)
                 {
-                    try
-                    {
-                        // 2. تحديث أو إضافة العناصر
-                        foreach (var item in Input.Items)
-                        {
-                            var existingItem = cart.Items
-                                .FirstOrDefault(i => i.ProductId == item.ProductId && !i.IsDeleted);
-
-                            if (existingItem != null)
-                            {
-                                if (item.Quantity <= 0)
-                                {
-                                    // إزالة العنصر إذا الكمية <= 0
-                                    cart.Items.Remove(existingItem);
-                                }
-                                else
-                                {
-                                    // تحديث الكمية
-                                    existingItem.Quantity = item.Quantity;
-                                }
-                            }
-                            else if (item.Quantity > 0)
-                            {
-                                // إضافة عنصر جديد إذا المنتج موجود
-                                var productExists = _unit.Product.All().Any(p => p.Id == item.ProductId);
-                                if (productExists)
-                                {
-                                    cart.Items.Add(new CartItem
-                                    {
-                                        Id = Guid.NewGuid(),
-                                        ProductId = item.ProductId,
-                                        Quantity = item.Quantity
-                                    });
-                                }
-                            }
-                        }
-
-                        cart.UpdatedDate = DateTime.Now;
-
-                        // 3. تحديث الكارت في الـ DbContext
-                        _unit.Cart.UpdateAsync(cart);
-                        var result = _unit.Save();
-
-                        if (result > 0)
-                        {
-                            saved = true;
-                            return new GeneralResponse<Guid>(cart.Id, _localization["Succesfully"].Value);
-                        }
-                        else
-                        {
-                            return new GeneralResponse<Guid>(_localization["ErrorInSave"].Value, System.Net.HttpStatusCode.BadRequest);
-                        }
-                    }
-                    catch (DbUpdateConcurrencyException)
-                    {
-                        // 4. التعامل مع الـ concurrency exception
-                        cart = _unit.Cart.All()
-                            .Include(c => c.Items)
-                                .ThenInclude(i => i.Product)
-                            .FirstOrDefault(c => c.UserId == UserId);
-
-                        if (cart == null)
-                        {
-                            return new GeneralResponse<Guid>(_localization["CartNotFound"].Value, System.Net.HttpStatusCode.NotFound);
-                        }
-
-                        // ممكن تضيف هنا logic لإعادة دمج البيانات القديمة والجديدة قبل إعادة المحاولة
-                    }
+                    return new GeneralResponse<Guid>(
+                        _localization["Item not found in cart"].Value,
+                        System.Net.HttpStatusCode.BadRequest);
                 }
 
-                return new GeneralResponse<Guid>(_localization["ErrorInSave"].Value, System.Net.HttpStatusCode.BadRequest);
+                var product = await _unit.Product.GetByIdAsync(input.ProductId);
+
+                if (product == null)
+                {
+                    return new GeneralResponse<Guid>(
+                        _localization["Product not found"].Value,
+                        System.Net.HttpStatusCode.BadRequest);
+                }
+
+                // التحقق من الكمية
+                if (input.Quantity > product.StockQuantity)
+                {
+                    return new GeneralResponse<Guid>(
+                        _localization[$"Requested quantity exceeds available stock for {product.Name}"].Value,
+                        System.Net.HttpStatusCode.BadRequest);
+                }
+
+                // لو الكمية 0 نحذف المنتج من الكارت
+                if (input.Quantity == 0)
+                {
+                     //cart.Items.Remove(cartItem);
+                    await _unit.CartItem.SoftDelete(cartItem.Id);
+                }
+                else
+                {
+                    cartItem.Quantity = input.Quantity;
+                    await _unit.CartItem.UpdateAsync(cartItem);
+                }
+
+                var result = _unit.Save();
+
+                return result > 0
+                    ? new GeneralResponse<Guid>(cart.Id, _localization["Updated successfully"].Value)
+                    : new GeneralResponse<Guid>(
+                        _localization["Error in save"].Value,
+                        System.Net.HttpStatusCode.BadRequest);
             }
             catch (Exception ex)
             {
-                return new GeneralResponse<Guid>(ex.Message + "-" + ex.InnerException?.Message, System.Net.HttpStatusCode.BadRequest);
+                return new GeneralResponse<Guid>(
+                    ex.Message + "-" + ex.InnerException?.Message,
+                    System.Net.HttpStatusCode.BadRequest);
             }
         }
         public async Task<GeneralResponse<Guid>> SoftDelete(Guid Id)
@@ -283,11 +269,11 @@ namespace ECommerce.Application.Service
                 var cart = _unit.Cart.All().Include(x=>x.Items)
                     .FirstOrDefault(c => c.UserId == userId);
 
-                if (cart == null)
+                if (cart == null || cart.IsDeleted)
                     return new GeneralResponse<Guid>(_localization["Cart not found"].Value, System.Net.HttpStatusCode.BadRequest);
 
                 var item = cart.Items.FirstOrDefault(i => i.Id == ItemId);
-                if (item == null)
+                if (item == null || item.IsDeleted)
                     return new GeneralResponse<Guid>(_localization["Item not found in cart"].Value, System.Net.HttpStatusCode.BadRequest);
 
                 await _unit.CartItem.SoftDelete(item.Id);
@@ -314,10 +300,10 @@ namespace ECommerce.Application.Service
         {
             try
             {
-                var cart = _unit.Cart.All()
+                var cart = _unit.Cart.All().Include(x => x.Items)
                     .FirstOrDefault(c => c.UserId == userId);
 
-                if (cart == null)
+                if (cart == null||cart.IsDeleted)
                     return new GeneralResponse<Guid>(_localization["Cart not found"], System.Net.HttpStatusCode.NotFound);
 
                 foreach (var item in cart.Items)

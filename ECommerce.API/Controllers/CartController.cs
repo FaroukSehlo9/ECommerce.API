@@ -45,8 +45,8 @@ namespace ECommerce.API.Controllers
             return await _CartService.Add(Input, CartId);
         }
 
-        [HttpPost("Update")]
-        public async Task<GeneralResponse<Guid>> Update(CartUpdateInput Input)
+        [HttpPost("UpdateCartItem")]
+        public async Task<GeneralResponse<Guid>> Update(CartItemUpdateInput Input)
         {
             Guid CartId = Guid.Parse(HttpContext.GetUserId());
 

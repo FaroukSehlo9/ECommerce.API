@@ -13,7 +13,7 @@ namespace ECommerce.Application.IService
         Task<GeneralResponse<List<CartDto>>> GetAll();
         Task<GeneralResponse<CartDto>> GetByIdAsync(Guid Id);
         Task<GeneralResponse<Guid>> Add(CartInput input, Guid UserId);
-        Task<GeneralResponse<Guid>> Update(CartUpdateInput input, Guid UserId);
+        Task<GeneralResponse<Guid>> Update(CartItemUpdateInput input, Guid UserId);
         Task<GeneralResponse<List<Guid>>> SoftRangeDelete(List<Guid> Id);
         Task<GeneralResponse<Guid>> SoftDelete(Guid Id);
         Task<GeneralResponse<Guid>> RemoveItemFromCart(Guid productId, Guid userId);
