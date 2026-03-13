@@ -132,7 +132,7 @@ namespace ECommerce.Application.Service
                         return new GeneralResponse<Guid>(_localization[$"Requested quantity for product {product.Name} exceeds available stock"].Value, System.Net.HttpStatusCode.BadRequest);
                     }
 
-                    var existingItem = cart.Items.FirstOrDefault(x => x.ProductId == item.ProductId);
+                    var existingItem = cart.Items.FirstOrDefault(x => x.ProductId == item.ProductId && !x.IsDeleted);
 
                     if (existingItem != null)
                     {
@@ -300,7 +300,8 @@ namespace ECommerce.Application.Service
         {
             try
             {
-                var cart = _unit.Cart.All().Include(x => x.Items)
+                var cart = _unit.Cart.All()
+                    .Include(x => x.Items.Where(i => !i.IsDeleted))
                     .FirstOrDefault(c => c.UserId == userId);
 
                 if (cart == null||cart.IsDeleted)
@@ -342,18 +343,21 @@ namespace ECommerce.Application.Service
                 Id = x.Id,
                 UserId = x.UserId,
                 UserName = x.User.UserName,
-                CartTotalPrice = x.Items.Sum(i => i.Product.Price * i.Quantity), // calculate total price
+                CartTotalPrice = x.Items
+                    .Where(i => !i.IsDeleted) // filter out deleted items
+                    .Sum(i => i.Product.Price * i.Quantity),
 
-                Items = x.Items.Select(i => new CartItemDto
-                {
-                    Id = i.Id,
-                    ProductId = i.ProductId,
-                    ProductName = i.Product.Name,
-                    Quantity = i.Quantity,
-                    Price = i.Product.Price,
-                    TotalPrice = (i.Quantity * i.Product.Price)
-                }).ToList()
-
+                Items = x.Items
+                    .Where(i => !i.IsDeleted) // filter out deleted items
+                    .Select(i => new CartItemDto
+                    {
+                        Id = i.Id,
+                        ProductId = i.ProductId,
+                        ProductName = i.Product.Name,
+                        Quantity = i.Quantity,
+                        Price = i.Product.Price,
+                        TotalPrice = i.Quantity * i.Product.Price
+                    }).ToList()
             }).FirstOrDefault();
             return new GeneralResponse<CartDto>(result, _localization["Succes"].Value);
         }

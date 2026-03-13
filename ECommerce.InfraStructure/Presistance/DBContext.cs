@@ -23,6 +23,8 @@ namespace ECommerce.InfraStructure.Presistance
         public virtual DbSet<CartItem> CartItem { get; set; }
         public virtual DbSet<Category> Category { get; set; }
         public virtual DbSet<ProductCategory> ProductCategory { get; set; }
+        public virtual DbSet<Order> Order { get; set; }
+        public virtual DbSet<OrderItem> OrderItem { get; set; }
        
 
 
