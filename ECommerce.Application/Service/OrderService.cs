@@ -35,6 +35,7 @@ namespace ECommerce.Application.Service
 
         public async Task<GeneralResponse<Guid>> Checkout(Guid userId)
         {
+
             try
             {
 
@@ -91,7 +92,7 @@ namespace ECommerce.Application.Service
                 //cart.Items.Clear();
                 await _CartService.ClearCart(userId);
 
-                _unit.Save();
+                await _unit.SaveAsync();
 
                 return new GeneralResponse<Guid>(order.Id, _localization["Order created successfully"].Value);
 
@@ -239,7 +240,7 @@ namespace ECommerce.Application.Service
 
                 await _unit.Order.UpdateAsync(order);
 
-                _unit.Save();
+                await _unit.SaveAsync();
 
                 return new GeneralResponse<Guid>(_localization["Order cancelled successfully"].Value, System.Net.HttpStatusCode.BadRequest);
 
