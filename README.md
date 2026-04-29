@@ -32,8 +32,8 @@ The project follows **Clean Architecture** to ensure separation of concerns and 
 - [x] Solution setup with Clean Architecture.
 - [x] Product & Category Entities.
 - [x] Generic Repository & Specification Pattern.
-- [ ] Authentication & Authorization (JWT).
-- [ ] Shopping Cart Logic.
+- [x] Authentication & Authorization (JWT).
+- [x] Shopping Cart Logic.
 - [ ] Order Processing & Checkout.
 - [ ] Admin Dashboard Endpoints.
 
