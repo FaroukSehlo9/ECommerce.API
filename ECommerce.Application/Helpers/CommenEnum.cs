@@ -22,5 +22,10 @@ namespace ECommerce.Application.Helpers
             Delivered = 4,
             Cancelled = 5
         }
+        public enum PaymentMethod
+        {
+            CreditCard,
+            PayPal
+        }
     }
 }

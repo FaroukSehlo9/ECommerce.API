@@ -2,6 +2,7 @@
 using ECommerce.API.Middleware;
 using ECommerce.Application.IService;
 using ECommerce.Application.Service;
+using ECommerce.Application.Service.PaymentStrategies;
 using ECommerce.Domain.IRepositories;
 using ECommerce.Domain.IRepositories.Base;
 using ECommerce.InfraStructure.Presistance;
@@ -125,6 +126,12 @@ namespace ECommerce.Api
             });
             services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
             services.AddTransient<BaseActionFilter>();
+
+            // ===== Payment =====
+            services.AddTransient<CreditCardPaymentStrategy>();
+            services.AddTransient<PayPalPaymentStrategy>();
+            services.AddTransient<PaymentStrategyFactory>();
+
         }
 
         // تكوين الـ HTTP pipeline
