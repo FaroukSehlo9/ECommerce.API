@@ -26,6 +26,7 @@ namespace ECommerce.InfraStructure.Reposatories
         public IRepository<ProductCategory> ProductCategory { get; private set; }
         public IRepository<Order> Order { get; private set; }
         public IRepository<OrderItem> OrderItem { get; private set; }
+        public IRepository<Payment> Payment { get; private set; }
      
 
 
@@ -42,6 +43,7 @@ namespace ECommerce.InfraStructure.Reposatories
             ProductCategory = new Repository<ProductCategory>(this.context);
             Order = new Repository<Order>(this.context);
             OrderItem = new Repository<OrderItem>(this.context);
+            Payment = new Repository<Payment>(this.context);
            
         }
 

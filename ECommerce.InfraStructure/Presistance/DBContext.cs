@@ -25,6 +25,7 @@ namespace ECommerce.InfraStructure.Presistance
         public virtual DbSet<ProductCategory> ProductCategory { get; set; }
         public virtual DbSet<Order> Order { get; set; }
         public virtual DbSet<OrderItem> OrderItem { get; set; }
+        public virtual DbSet<Payment> Payment { get; set; }
        
 
 

@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Stripe;
 using System;
 using System.Globalization;
 using System.Text;
@@ -106,7 +107,7 @@ namespace ECommerce.Api
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUserService, UserService>();
-            services.AddScoped<IProductService, ProductService>();
+            services.AddScoped<IProductService, Application.Service.ProductService>();
             services.AddScoped<ICartService, CartService>();
             services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<IProductCategoryService, ProductCategoryService>();
@@ -128,6 +129,7 @@ namespace ECommerce.Api
             services.AddTransient<BaseActionFilter>();
 
             // ===== Payment =====
+            StripeConfiguration.ApiKey = Configuration["Stripe:SecretKey"];
             services.AddTransient<CreditCardPaymentStrategy>();
             services.AddTransient<PayPalPaymentStrategy>();
             services.AddTransient<PaymentStrategyFactory>();

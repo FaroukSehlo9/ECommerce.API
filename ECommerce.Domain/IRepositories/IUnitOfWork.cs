@@ -23,6 +23,7 @@ namespace ECommerce.Domain.IRepositories
         IRepository<ProductCategory> ProductCategory { get; }
         IRepository<Order> Order { get; }
         IRepository<OrderItem> OrderItem { get; }
+        IRepository<Payment> Payment { get; }
 
 
 
