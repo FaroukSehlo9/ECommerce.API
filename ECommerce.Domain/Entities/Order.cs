@@ -17,6 +17,6 @@ namespace ECommerce.Domain.Entities
         public int Orderstatus { get; set; }
 
         public ICollection<OrderItem> Items { get; set; }
-
+        public ICollection<Payment> Payments { get; set; } 
     }
 }

@@ -43,12 +43,8 @@ namespace ECommerce.Application.Service.PaymentStrategies
                 };
 
                 // 2. نجاح العملية (بنرجع رسالة النجاح والـ OK Status)
-                var response = new GeneralResponse<PaymentResult>(_localization["تمت العملية بنجاح"].Value, System.Net.HttpStatusCode.OK);
+                return new GeneralResponse<PaymentResult>(result, _localization["تمت العملية بنجاح"].Value);
 
-                // وبنحط الـ result جوه خاصية الـ Resource يدوي بما إن الـ Constructor مبيقبلهاش
-                response.Resource = result;
-
-                return response;
             }
             catch (Exception ex)
             {
