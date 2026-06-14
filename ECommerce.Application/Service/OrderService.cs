@@ -9,6 +9,7 @@ using ECommerce.Domain.Entities;
 using ECommerce.Domain.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,21 +25,22 @@ namespace ECommerce.Application.Service
         private readonly IStringLocalizer<GeneralMessages> _localization;
         private readonly IUnitOfWork _unit;
         private readonly ICartService _CartService;
+        private readonly ILogger<OrderService> _logger; // 1. تعريف الـ Logger
 
-        public OrderService(IMapper imapper, IStringLocalizer<GeneralMessages> localization, IUnitOfWork unitOfWork, ICartService CartService)
+        public OrderService(IMapper imapper, IStringLocalizer<GeneralMessages> localization, IUnitOfWork unitOfWork, ICartService CartService , ILogger<OrderService> logger)
         {
             _Imapper = imapper;
             _localization = localization;
             _unit = unitOfWork;
             _CartService = CartService;
+            _logger = logger;
         }
 
         public async Task<GeneralResponse<Guid>> Checkout(Guid userId)
         {
             try
             {
-                var cart = await _unit.Cart
-                     .All()
+                var cart = await _unit.Cart.All()
                      .Include(x => x.Items.Where(i => !i.IsDeleted))
                      .ThenInclude(i => i.Product)
                      .FirstOrDefaultAsync(x => x.UserId == userId);
@@ -55,48 +57,34 @@ namespace ECommerce.Application.Service
                 };
 
                 decimal total = 0;
-
                 foreach (var item in cart.Items)
                 {
+                    // فقط نتأكد من التوفر، لكن لا نخصم المخزون الآن!
                     if (item.Product.StockQuantity < item.Quantity)
                         return new GeneralResponse<Guid>(_localization["Product out of stock"].Value, System.Net.HttpStatusCode.BadRequest);
 
-                    var orderItem = new OrderItem
+                    order.Items.Add(new OrderItem
                     {
                         Id = Guid.NewGuid(),
                         ProductId = item.ProductId,
                         Quantity = item.Quantity,
                         Price = item.Product.Price
-                    };
-
+                    });
                     total += item.Product.Price * item.Quantity;
-
-                    order.Items.Add(orderItem);
-
-                    // تعديل المخزون
-                    item.Product.StockQuantity -= item.Quantity;
-
-                    // عمل update رسمي للـ EF Core
-                    await _unit.Product.UpdateAsync(item.Product);
                 }
 
                 order.TotalPrice = total;
-
                 await _unit.Order.AddAsync(order);
-
-                //cart.Items.Clear();
                 await _CartService.ClearCart(userId);
-
                 await _unit.SaveAsync();
 
                 return new GeneralResponse<Guid>(order.Id, _localization["Order created successfully"].Value);
             }
             catch (Exception ex)
             {
-                return new GeneralResponse<Guid>(ex.Message + "-" + ex.InnerException?.Message, System.Net.HttpStatusCode.BadRequest);
+                return new GeneralResponse<Guid>(ex.Message, System.Net.HttpStatusCode.BadRequest);
             }
         }
-
         // 🆕 الميثود الأولى: تسجيل محاولة دفع أولية بحالة Pending في الجدول المنفصل
         public async Task<GeneralResponse<Guid>> CreatePaymentAttempt(CreatePaymentAttemptDto dto)
         {
@@ -129,26 +117,56 @@ namespace ECommerce.Application.Service
         {
             try
             {
-                // جلب سجل الدفع مع الأوردر بتاعه بالـ TransactionId
+                // 1. جلب البيانات مع التأكد من وجود الـ Payment والـ Order
                 var payment = await _unit.Payment.All()
                     .Include(p => p.Order)
+                    .ThenInclude(o => o.Items)
                     .FirstOrDefaultAsync(x => x.TransactionId == transactionId);
 
                 if (payment == null)
+                {
+                    _logger.LogError($"Webhook received for non-existent transaction: {transactionId}");
                     return new GeneralResponse<bool>(_localization["Payment record not found"].Value, System.Net.HttpStatusCode.BadRequest);
+                }
+
+                // 2. Idempotency Check: التأكد من أن العملية لم تُعالج مسبقاً
+                // نفترض أن PaymentStatus 1 يعني Paid
+                if (payment.PaymentStatus == 1)
+                {
+                    _logger.LogInformation($"Duplicate webhook received for transaction: {transactionId}. Skipping.");
+                    return new GeneralResponse<bool>(true, _localization["Payment status already updated"].Value);
+                }
 
                 if (isSuccess)
                 {
-                    payment.PaymentStatus = 1; // 1 تعني Success
-                    payment.Order.Orderstatus = Convert.ToInt32(OrderStatus.Paid); // تحويل الأوردر لـ Paid
+                    // 3. خصم المخزون (يتم فقط إذا كان النجاح لأول مرة)
+                    foreach (var item in payment.Order.Items)
+                    {
+                        var product = await _unit.Product.GetByIdAsync(item.ProductId);
+                        if (product == null || product.StockQuantity < item.Quantity)
+                        {
+                            _logger.LogError($"Stock shortage for product: {item.ProductId}");
+                            return new GeneralResponse<bool>(_localization["Product out of stock"].Value, System.Net.HttpStatusCode.BadRequest);
+                        }
+
+                        product.StockQuantity -= item.Quantity;
+                        await _unit.Product.UpdateAsync(product);
+                    }
+
+                    // 4. تحديث الحالات إلى Paid
+                    payment.PaymentStatus = 1;
+                    payment.Order.Orderstatus = Convert.ToInt32(OrderStatus.Paid);
+                    _logger.LogInformation($"Payment succeeded for Transaction: {transactionId}");
                 }
                 else
                 {
-                    payment.PaymentStatus = 2; // 2 تعني Failed
+                    // 5. معالجة حالة الفشل
+                    payment.PaymentStatus = 2;
                     payment.ErrorMessage = errorMsg;
-                    // الأوردر بيفضل Pending أو يتحول لحالة فشل دفع حسب رغبتك
+                    _logger.LogWarning($"Payment failed for Transaction: {transactionId}. Error: {errorMsg}");
                 }
 
+                // 6. حفظ التغييرات في وحدة العمل
                 await _unit.Payment.UpdateAsync(payment);
                 await _unit.Order.UpdateAsync(payment.Order);
                 await _unit.SaveAsync();
@@ -157,10 +175,10 @@ namespace ECommerce.Application.Service
             }
             catch (Exception ex)
             {
-                return new GeneralResponse<bool>(ex.Message + "-" + ex.InnerException?.Message, System.Net.HttpStatusCode.BadRequest);
+                _logger.LogError(ex, $"Critical error processing webhook for transaction: {transactionId}");
+                return new GeneralResponse<bool>(ex.Message, System.Net.HttpStatusCode.InternalServerError);
             }
         }
-
         public async Task<GeneralResponse<List<OrderDto>>> GetAll()
         {
             var orders = await _unit.Order

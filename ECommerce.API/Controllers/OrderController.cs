@@ -8,6 +8,7 @@ using ECommerce.Application.Service.Generic;
 using MagicBroom.APIServices.ActionFilter;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Stripe.Climate;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -42,9 +43,14 @@ namespace ECommerce.API.Controllers
 
         // 🆕 2. Endpoint لتحديث حالة الدفع للأوردر (نجاح أو فشل) بعد رد بوابة الدفع
         [HttpPost("ConfirmPaymentStatus")]
-        public async Task<GeneralResponse<bool>> ConfirmPaymentStatus([FromQuery] string transactionId, [FromQuery] bool isSuccess, [FromQuery] string? errorMsg = null)
+        public async Task<IActionResult> ConfirmPaymentStatus([FromQuery] string transactionId, [FromQuery] bool isSuccess, [FromQuery] string? errorMsg = null)
         {
-            return await _OrderService.ConfirmPaymentStatus(transactionId, isSuccess, errorMsg);
+            var result = await _OrderService.ConfirmPaymentStatus(transactionId, isSuccess, errorMsg);
+
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
         }
 
         [HttpGet("GetAll")]

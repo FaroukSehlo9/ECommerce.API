@@ -1,4 +1,4 @@
-﻿using ECommerce.API.ActionFilter;
+using ECommerce.API.ActionFilter;
 using ECommerce.API.Middleware;
 using ECommerce.Application.IService;
 using ECommerce.Application.Service;
@@ -20,6 +20,7 @@ using Stripe;
 using System;
 using System.Globalization;
 using System.Text;
+using static ECommerce.Application.Service.PaymentStrategies.PayPalPaymentStrategy;
 
 namespace ECommerce.Api
 {
@@ -112,6 +113,9 @@ namespace ECommerce.Api
             services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<IProductCategoryService, ProductCategoryService>();
             services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IWebhookHandler, StripeWebhookService>();
+            services.AddScoped<IWebhookHandler, PayPalWebhookService>();
+            services.AddScoped<IWebhookHandler, PaymobWebhookService>();
 
             // ===== AutoMapper =====
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
@@ -129,11 +133,17 @@ namespace ECommerce.Api
             services.AddTransient<BaseActionFilter>();
 
             // ===== Payment =====
+
+            // تكوين Stripe
             StripeConfiguration.ApiKey = Configuration["Stripe:SecretKey"];
             services.AddTransient<CreditCardPaymentStrategy>();
             services.AddTransient<PayPalPaymentStrategy>();
+            services.AddTransient<PaymobPaymentStrategy>();
             services.AddTransient<PaymentStrategyFactory>();
 
+
+            // تكوين PayPal
+            services.AddSingleton<PayPalConfigService>();
         }
 
         // تكوين الـ HTTP pipeline

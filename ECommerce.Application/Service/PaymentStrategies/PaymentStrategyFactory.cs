@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using ECommerce.Application.IService;
 using System;
 using System.Collections.Generic;
@@ -24,8 +24,13 @@ namespace ECommerce.Application.Service.PaymentStrategies
             {
                 PaymentMethod.CreditCard => _serviceProvider.GetRequiredService<CreditCardPaymentStrategy>(),
                 PaymentMethod.PayPal => _serviceProvider.GetRequiredService<PayPalPaymentStrategy>(),
+                PaymentMethod.Paymob => _serviceProvider.GetRequiredService<PaymobPaymentStrategy>(),
                 _ => throw new ArgumentException("طريقة الدفع غير مدعومة حالياً")
             };
+
+            //var strategies = _serviceProvider.GetServices<IPaymentService>();
+            //return strategies.FirstOrDefault(s => s.Method == method)
+            //       ?? throw new ArgumentException("طريقة الدفع غير مدعومة");
         }
     }
 }

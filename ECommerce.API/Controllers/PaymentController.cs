@@ -3,6 +3,7 @@ using ECommerce.Application.DTOS.OrderDTO;
 using ECommerce.Application.DTOS.PaymentDTO;
 using ECommerce.Application.IService; // 🆕 ضفنا الـ namespace عشان الـ IOrderService
 using ECommerce.Application.Service.PaymentStrategies;
+using ECommerce.Domain.IRepositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -17,40 +18,49 @@ namespace ECommerce.API.Controllers
         private readonly PaymentStrategyFactory _paymentFactory;
         private readonly IOrderService _orderService; // 🆕 عملنا Inject للـ OrderService المسؤول عن الداتابيز
 
-        public PaymentController(PaymentStrategyFactory paymentFactory, IOrderService orderService)
+
+        public PaymentController(PaymentStrategyFactory paymentFactory, IOrderService orderService )
         {
             _paymentFactory = paymentFactory;
             _orderService = orderService;
         }
 
         [HttpPost("process")]
-        public async Task<GeneralResponse<PaymentResult>> Process([FromQuery] PaymentMethod method, [FromBody] PaymentRequest request)
+        public async Task<GeneralResponse<PaymentResult>> Process([FromQuery] PaymentMethod method, [FromBody] PaymentProcessRequest request)
         {
-            // 1. طلب الـ Strategy الصح من الـ Factory بناءً على طريقة الدفع (Stripe أو PayPal)
+            // 1. هنجيب بيانات الأوردر من الداتابيز باستخدام الـ OrderId (الأمان الكامل)
+            var order = await _orderService.GetOrderById(request.OrderId);
+            if (order == null) return new GeneralResponse<PaymentResult>("Order not found", System.Net.HttpStatusCode.NotFound);
+
+            // 2. هنجهز الـ Request اللي هيروح لـ Stripe/PayPal بالبيانات اللي جبناها من الداتابيز
+            var paymentDetails = new PaymentRequest
+            {
+                OrderId = request.OrderId,
+                Amount = order.Resource.TotalPrice, // السعر من الداتابيز (غير قابل للتلاعب)
+                Currency = "USD" // تثبيت العملة هنا
+            };
+
+            // 3. كمل الـ Flow بتاعك عادي
             var strategy = _paymentFactory.GetPaymentStrategy(method);
+            var paymentResponse = await strategy.ProcessPayment(paymentDetails);
 
-            // 2. تنفيذ عملية الدفع الخارجية مع Stripe/PayPal والحصول على الـ الـ TransactionId والـ ClientSecret
-            var paymentResponse = await strategy.ProcessPayment(request);
-
-            // 3. 🚀 الربط السحري: لو العملية نجحت مع بوابة الدفع الخارجي، بنسجل المحاولة فوراً في جدول الـ Payment
-            // بنفحص الـ paymentResponse.Resource للتأكد إن الـ TransactionId رجع فعلاً
-            if (paymentResponse.Success && paymentResponse.Resource != null && !string.IsNullOrEmpty(paymentResponse.Resource.TransactionId))
+            // 4. الربط وتسجيل المحاولة (زي ما إنت عاملها بالضبط)
+            if (paymentResponse.Success && !string.IsNullOrEmpty(paymentResponse.Resource?.TransactionId))
             {
                 var attemptDto = new CreatePaymentAttemptDto
                 {
                     OrderId = request.OrderId,
-                    Amount = request.Amount,
-                    Currency = request.Currency ?? "USD",
-                    Method = (int)method, // تحويل الـ Enum لـ int عشان الداتابيز
-                    TransactionId = paymentResponse.Resource.TransactionId // الـ pi_... بتاع سترايب
+                    Amount = order.Resource.TotalPrice, // تأكيد السعر من الداتابيز
+                    Currency = "USD", // تثبيت العملة هنا
+                    Method = (int)method,
+                    TransactionId = paymentResponse.Resource.TransactionId
                 };
-
-                // مناداة السيرفيس لعمل Insert رسمي في جدول الـ Payment بحالة Pending
                 await _orderService.CreatePaymentAttempt(attemptDto);
             }
 
-            // 4. إرجاع الـ Response النهائي للأنجولر
             return paymentResponse;
+
+
         }
     }
 }
