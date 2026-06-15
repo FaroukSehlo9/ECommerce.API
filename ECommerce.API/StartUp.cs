@@ -133,6 +133,7 @@ namespace ECommerce.Api
             services.AddTransient<BaseActionFilter>();
 
             // ===== Payment =====
+            services.AddHttpClient();
 
             // تكوين Stripe
             StripeConfiguration.ApiKey = Configuration["Stripe:SecretKey"];

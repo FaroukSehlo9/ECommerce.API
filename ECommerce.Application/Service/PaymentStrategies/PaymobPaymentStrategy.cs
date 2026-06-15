@@ -17,11 +17,13 @@ namespace ECommerce.Application.Service.PaymentStrategies
     {
         private readonly IConfiguration _config;
         private readonly IStringLocalizer<GeneralMessages> _localization;
+        private readonly IHttpClientFactory _httpClientFactory; // يُفضل استخدامه بدلاً من new HttpClient()
 
-        public PaymobPaymentStrategy(IConfiguration config, IStringLocalizer<GeneralMessages> localization)
+        public PaymobPaymentStrategy(IConfiguration config, IStringLocalizer<GeneralMessages> localization, IHttpClientFactory httpClientFactory)
         {
             _config = config;
             _localization = localization;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<GeneralResponse<PaymentResult>> ProcessPayment(PaymentRequest request)
@@ -47,44 +49,42 @@ namespace ECommerce.Application.Service.PaymentStrategies
                     return new GeneralResponse<PaymentResult>("Paymob IntegrationId must be an integer", HttpStatusCode.InternalServerError);
                 }
 
-                using var client = new HttpClient();
+                var client = _httpClientFactory.CreateClient();
 
-                // Step 1: Authentication Request
+                // Step 1: Authentication
                 var authBody = new { api_key = apiKey };
                 var authContent = new StringContent(JsonConvert.SerializeObject(authBody), Encoding.UTF8, "application/json");
                 var authResponse = await client.PostAsync("https://accept.paymob.com/api/auth/tokens", authContent);
 
                 if (!authResponse.IsSuccessStatusCode)
                 {
-                    var errorDetails = await authResponse.Content.ReadAsStringAsync();
-                    return new GeneralResponse<PaymentResult>($"Paymob authentication failed: {errorDetails}", HttpStatusCode.BadRequest);
+                    return new GeneralResponse<PaymentResult>("Paymob authentication failed.", HttpStatusCode.BadRequest);
                 }
 
-                var authResultStr = await authResponse.Content.ReadAsStringAsync();
-                dynamic authData = JsonConvert.DeserializeObject(authResultStr);
+                dynamic authData = JsonConvert.DeserializeObject(await authResponse.Content.ReadAsStringAsync());
                 string token = authData.token;
 
-                // Step 2: Order Registration
+                // Step 2: Order Registration (Fixed duplicate issue)
                 var orderBody = new
                 {
                     auth_token = token,
                     delivery_needed = "false",
                     amount_cents = (long)(request.Amount * 100),
                     currency = request.Currency ?? "EGP",
-                    merchant_order_id = request.OrderId.ToString(),
+                    // تم إضافة Ticks لجعل المعرف فريداً دائماً أثناء الاختبار
+                    merchant_order_id = $"{request.OrderId}_{DateTime.UtcNow.Ticks}",
                     items = new object[] { }
                 };
+
                 var orderContent = new StringContent(JsonConvert.SerializeObject(orderBody), Encoding.UTF8, "application/json");
                 var orderResponse = await client.PostAsync("https://accept.paymob.com/api/ecommerce/orders", orderContent);
 
                 if (!orderResponse.IsSuccessStatusCode)
                 {
-                    var errorDetails = await orderResponse.Content.ReadAsStringAsync();
-                    return new GeneralResponse<PaymentResult>($"Paymob order registration failed: {errorDetails}", HttpStatusCode.BadRequest);
+                    return new GeneralResponse<PaymentResult>($"Paymob order registration failed: {await orderResponse.Content.ReadAsStringAsync()}", HttpStatusCode.BadRequest);
                 }
 
-                var orderResultStr = await orderResponse.Content.ReadAsStringAsync();
-                dynamic orderData = JsonConvert.DeserializeObject(orderResultStr);
+                dynamic orderData = JsonConvert.DeserializeObject(await orderResponse.Content.ReadAsStringAsync());
                 string paymobOrderId = orderData.id.ToString();
 
                 // Step 3: Payment Key Generation
@@ -110,28 +110,28 @@ namespace ECommerce.Application.Service.PaymentStrategies
                         last_name = "NA",
                         state = "NA"
                     },
-                    currency = request.Currency ?? "EGP",
+                    currency =  "EGP",
                     integration_id = integrationId,
                     lock_order_to_token = true
                 };
+
                 var keyContent = new StringContent(JsonConvert.SerializeObject(keyBody), Encoding.UTF8, "application/json");
                 var keyResponse = await client.PostAsync("https://accept.paymob.com/api/acceptance/payment_keys", keyContent);
 
                 if (!keyResponse.IsSuccessStatusCode)
                 {
+                    // تعديل هنا: اقرأ محتوى الخطأ الفعلي بدلاً من الرسالة الثابتة
                     var errorDetails = await keyResponse.Content.ReadAsStringAsync();
                     return new GeneralResponse<PaymentResult>($"Paymob payment key generation failed: {errorDetails}", HttpStatusCode.BadRequest);
                 }
 
-                var keyResultStr = await keyResponse.Content.ReadAsStringAsync();
-                dynamic keyData = JsonConvert.DeserializeObject(keyResultStr);
+                dynamic keyData = JsonConvert.DeserializeObject(await keyResponse.Content.ReadAsStringAsync());
                 string paymentKey = keyData.token;
 
                 var result = new PaymentResult
                 {
                     IsSuccess = true,
-                    TransactionId = paymobOrderId, // Standard practice is to record Paymob Order ID for tracking callbacks
-                    Message = "Paymob token generated successfully",
+                    TransactionId = paymobOrderId,
                     PaymentUrl = $"https://accept.paymob.com/api/acceptance/iframes/{iframeIdStr}?payment_token={paymentKey}"
                 };
 
